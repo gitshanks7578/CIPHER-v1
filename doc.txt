@@ -1,0 +1,45 @@
+AUTH LAYER ARCHITECTURE
+
++REGISTER
+none special,email,unique userID,password
+generate device ID during successful register
+
+DEVICE ID GENERATION
+  after register,  public key and private key are made | private key -> windows tpm | public key -> mongo db
+
+(  on login ,after req.body check --> server sends a RANDOM string to client | client signs it with PRIVATE KEY sends back to server | server verifies it with PUBLC key || if success generate session and tokens )
+
++LOGIN (RATE LIMITED)
+ short lived ACCESS and REFRESH tokens
+refresh token rotation
+forced single device login
+  password check
+  session check 
+      if session exists -> check device key
+
+in case of half stuck login cycle
+    session exists +  device key exists but user couldnt manually logout,and logins again --->to ensure if the device is same WE CHECK WITH DEVICE KEY
+
+without deivce key -> if session exists even at faulty login user wont be able to login  leaving an account DEAD.
+
+if device lost 
+   user can either wait it out OR
+   use email verification (RATE LIMITED) to reset device ID and delete older  sessions
+
+
++LOGOUT
+     manual -> deletes sessions and tokens
+     timebased -> on a login attempt ,check existing using  TIMESTAMP
+     terminate account ->saves SQLlite db ,deletes everything 
+
+
++AUDIT LOGS
+MUST BE HASHED algo used sha256
+
+ Audit logs: store userId, eventType, timestamp, deviceKeyHash, ipAddress, cpuModel + arch, appVersion, threatLevel, success/failure, failureReason.
+
+Events audited: register, login_success, login_failed, device_mismatch, forced_device_reset, logout, session_expiry, permission_denied, suspicious/empty-fields attempts.
+
+ threat level manually attached by us as integers,during edge cases
+
+

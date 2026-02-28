@@ -1,0 +1,37 @@
+npm init -y
+npm i express dotenv mongoose bcrypt jsonwebtoken
+npm install -D typescript ts-node-dev @types/node @types/express
+
+    ts-node-dev --> nodemon
+
+    @types/node --> type definition for node 
+    @types/express --> type definition for express
+
+package.json 
+     "scripts": {
+    "dev" : "ts-node-dev --respawn --transpile-only src/index.ts",
+    "build" : "tsc",
+    "start" : "node dist/index.js"
+  },
+
+
+
+npx tsc --init   -->tsc config
+  
+{
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist",
+
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "target": "ES2022",
+    "allowSyntheticDefaultImports": true,   //important for .js imports
+    "strict": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "types": ["node"]
+  },
+  "include": ["src"]
+}
