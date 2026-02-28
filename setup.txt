@@ -22,14 +22,12 @@ npx tsc --init   -->tsc config
   "compilerOptions": {
     "rootDir": "./src",
     "outDir": "./dist",
-
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
     "target": "ES2022",
-    "allowSyntheticDefaultImports": true,   //important for .js imports
     "strict": true,
-    "skipLibCheck": true,
     "esModuleInterop": true,
+    "skipLibCheck": true,
     "resolveJsonModule": true,
     "types": ["node"]
   },

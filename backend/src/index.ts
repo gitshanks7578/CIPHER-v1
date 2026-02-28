@@ -1,6 +1,6 @@
 import dotenv from 'dotenv'
-import {dbconnect} from "./db/db.js"
-import app from "./app.js"
+import {dbconnect} from "./db/db"
+import app from "./app"
 dotenv.config()
 
 
@@ -11,5 +11,7 @@ dbconnect().then(()=>{
         console.log("server started successfully")
     })
 }).catch((err)=>{
-    console.log("dbconnect failed, src - index.js   ",err.message)
+    if (err instanceof Error){
+        console.log("dbconnect failed, src - index.js   ",err.message)
+    }
 })

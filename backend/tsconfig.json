@@ -47,14 +47,12 @@
   "compilerOptions": {
     "rootDir": "./src",
     "outDir": "./dist",
-
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
     "target": "ES2022",
-    "allowSyntheticDefaultImports": true,
     "strict": true,
-    "skipLibCheck": true,
     "esModuleInterop": true,
+    "skipLibCheck": true,
     "resolveJsonModule": true,
     "types": ["node"]
   },
