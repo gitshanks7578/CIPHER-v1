@@ -1,15 +1,192 @@
-import { Request,Response,NextFunction } from "express"
-import { apiError } from "../utils/apiError"
+import { Request, Response, NextFunction } from "express";
+import { apiError } from "../utils/apiError";
 import { user } from "../models/user.model";
-
+import { session } from "../models/session.model";
 import crypto from "crypto";
 import bcrypt from "bcrypt";
+import { refreshToken } from "../models/refreshtoken.model";
 // import jwt from "jsonwebtoken"
-export const register = async(req:Request,res:Response,next:NextFunction) =>{
-     try {
-  
-    
+import {
+  generateRefreshToken,
+  generateAccessToken,
+} from "../utils/tokenGenerator";
+export const register = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { username, email, password, publicKey } = req.body;
+
+    if (!username || !email || !password || !publicKey) {
+      throw new apiError(400, "Missing required fields");
+    }
+
+    // Check if user exists
+    const existingUser = await user.findOne({ $or: [{ username }, { email }] });
+    if (existingUser) {
+      throw new apiError(400, "Username or email already exists");
+    }
+
+    // Create user
+    const newUser = new user({
+      username,
+      email,
+      password,
+      publicKey,
+      isActive: true,
+    });
+
+    await newUser.save();
+
+    // Respond
+    return res.status(201).json({
+      message: "User registered successfully",
+      user: {
+        id: newUser._id,
+        username: newUser.username,
+        email: newUser.email,
+        publicKey: newUser.publicKey,
+        pfpUrl: newUser.pfpUrl,
+      },
+    });
   } catch (error) {
-    next(error instanceof apiError ? error : new apiError(500, "Internal server error"));
+    next(
+      error instanceof apiError
+        ? error
+        : new apiError(500, "Internal server error"),
+    );
   }
-}
+};
+
+export const loginEntry = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { username, password } = req.body;
+    if (!username || !password)
+      throw new apiError(400, "Username and password required");
+
+    const existinguser = await user.findOne({ username });
+    if (!existinguser) throw new apiError(404, "User not found");
+
+    const isMatch = await existinguser.comparePassword(password);
+    if (!isMatch) throw new apiError(401, "Invalid password");
+
+    const challenge = crypto.randomBytes(32).toString("hex");
+
+    const tempSession = await session.create({
+      userId: existinguser._id,
+      challenge,
+      createdAt: new Date(),
+    });
+    await tempSession.save();
+
+    return res.status(200).json({ challenge });
+  } catch (err) {
+    if (err instanceof apiError) throw err;
+    // console.error("Login challenge error:", err);
+    throw new apiError(500, `Server error`);
+  }
+};
+
+export const verifyChallenge = async (req: Request,res: Response,next: NextFunction) => {
+  try {
+    const { username, challenge, signature } = req.body;
+    if (!username || !challenge || !signature)
+      throw new apiError(
+        400,
+        "Username, challenge, and signature are required",
+      );
+
+    const existingUser = await user.findOne({ username });
+    if (!existingUser) throw new apiError(404, "User not found");
+
+    const tempSession = await session.findOne({
+      userId: existingUser._id,
+      challenge,
+    });
+    if (!tempSession) throw new apiError(400, "Challenge not found or expired");
+
+//     // const verifier = crypto.createVerify("SHA256");
+//     // verifier.update(challenge);
+//     // verifier.end();
+//     // const signatureBuffer = Buffer.from(signature, "hex"); // convert hex back to Buffer
+// const cleanPubKey = existingUser.publicKey.replace(/\\n/g, "\n").trim();
+//     // const isValid = crypto.verify(
+//     //   "sha256",
+//     //   Buffer.from(challenge),
+//     //   {
+//     //     key: existingUser.publicKey,
+//     //     padding: crypto.constants.RSA_PKCS1_PADDING,
+//     //   },
+//     //   signatureBuffer,
+//     // );
+//     const pubKeyObj = crypto.createPublicKey(existingUser.publicKey);
+
+// const isValid = crypto.verify(
+//   "sha256",
+//   Buffer.from(challenge),
+//   {
+//     key: pubKeyObj,
+//     padding: crypto.constants.RSA_PKCS1_PADDING, // must match frontend
+//   },
+//   signatureBuffer
+// );
+const cleanPubKey = existingUser.publicKey.replace(/\\n/g, "\n").trim();
+
+const pubKeyObj = crypto.createPublicKey(cleanPubKey);
+
+const isValid = crypto.verify(
+  "sha256",
+  Buffer.from(challenge),
+  { key: pubKeyObj, padding: crypto.constants.RSA_PKCS1_PADDING },
+  Buffer.from(signature, "hex")
+);
+    if (!isValid) throw new apiError(401, "Invalid signature");
+    // const isValid = verifier.verify(existingUser.publicKey, signature, "hex");
+    // if (!isValid) throw new apiError(401, "Invalid signature");
+
+    //delete older session
+    await session.findByIdAndDelete(tempSession._id);
+
+    const newSession = await session.create({
+      userId: existingUser._id,
+      deviceInfo: req.headers["user-agent"],
+      valid: true,
+    });
+    await newSession.save();
+
+    //tokens
+    const refreshtoken = generateRefreshToken({
+      sessionID: newSession._id.toString(),
+    });
+
+    const accessToken = generateAccessToken({
+      sessionID: newSession._id.toString(),
+      userId: existingUser._id.toString(),
+    });
+    const refreshTokenExpiresAt = new Date(
+      Date.now() + 1000 * 60 * 60 * 24 * 7,
+    ); // 7 days
+    const newRefreshTokenDoc = await refreshToken.create({
+      sessionId: newSession._id,
+      tokenHash: refreshtoken,
+      expiresAt: refreshTokenExpiresAt,
+    });
+    await newRefreshTokenDoc.save();
+
+    return res.status(200).json({
+      message: "Login successful",
+      tokens: { accessToken, refreshtoken },
+    });
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error;
+    } else {
+      throw new apiError(500, "internal server error");
+    }
+  }
+};

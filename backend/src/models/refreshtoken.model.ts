@@ -11,7 +11,7 @@ export interface IRefreshToken extends Document {
 
 const refreshTokenSchema = new Schema<IRefreshToken>(
   {
-    sessionId: { type: Schema.Types.ObjectId, ref: "Session", required: true, unique: true },
+    sessionId: { type: Schema.Types.ObjectId, ref: "session", required: true, unique: true },
     tokenHash: { type: String, required: true },
     expiresAt: { type: Date, required: true },
 
@@ -19,4 +19,4 @@ const refreshTokenSchema = new Schema<IRefreshToken>(
   { timestamps: true }
 );
 
-export const RefreshToken = model<IRefreshToken>("RefreshToken", refreshTokenSchema);
+export const refreshToken = model<IRefreshToken>("refreshToken", refreshTokenSchema);

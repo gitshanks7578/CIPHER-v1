@@ -13,6 +13,9 @@ export interface IUser extends Document {
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
+  comparePassword(userPassword: string): Promise<boolean>;
+  
+
 }
 
 const userSchema = new Schema<IUser>(
