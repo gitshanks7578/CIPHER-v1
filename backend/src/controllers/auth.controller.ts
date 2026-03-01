@@ -10,11 +10,25 @@ import {
   generateRefreshToken,
   generateAccessToken,
 } from "../utils/tokenGenerator";
-export const register = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => {
+
+
+
+//WORST BUG I FACED
+const normalizePublicKey = (rawKey: string) => {
+  const cleaned = rawKey.replace(/\\n/g, "\n").replace(/\r/g, "").trim();
+
+  if (/-----BEGIN [^-]*PUBLIC KEY-----/.test(cleaned)) {
+    return cleaned;
+  }
+
+  const derBody = cleaned.replace(/-----[^-]+-----/g, "").replace(/\s+/g, "");
+  const wrappedBody = derBody.match(/.{1,64}/g)?.join("\n") ?? derBody;
+
+  return `-----BEGIN PUBLIC KEY-----\n${wrappedBody}\n-----END PUBLIC KEY-----`;
+};
+
+
+export const register = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { username, email, password, publicKey } = req.body;
 
@@ -110,34 +124,15 @@ export const verifyChallenge = async (req: Request,res: Response,next: NextFunct
     });
     if (!tempSession) throw new apiError(400, "Challenge not found or expired");
 
-//     // const verifier = crypto.createVerify("SHA256");
-//     // verifier.update(challenge);
-//     // verifier.end();
-//     // const signatureBuffer = Buffer.from(signature, "hex"); // convert hex back to Buffer
-// const cleanPubKey = existingUser.publicKey.replace(/\\n/g, "\n").trim();
-//     // const isValid = crypto.verify(
-//     //   "sha256",
-//     //   Buffer.from(challenge),
-//     //   {
-//     //     key: existingUser.publicKey,
-//     //     padding: crypto.constants.RSA_PKCS1_PADDING,
-//     //   },
-//     //   signatureBuffer,
-//     // );
-//     const pubKeyObj = crypto.createPublicKey(existingUser.publicKey);
 
-// const isValid = crypto.verify(
-//   "sha256",
-//   Buffer.from(challenge),
-//   {
-//     key: pubKeyObj,
-//     padding: crypto.constants.RSA_PKCS1_PADDING, // must match frontend
-//   },
-//   signatureBuffer
-// );
-const cleanPubKey = existingUser.publicKey.replace(/\\n/g, "\n").trim();
+let pubKeyObj: crypto.KeyObject;
 
-const pubKeyObj = crypto.createPublicKey(cleanPubKey);
+// const pubKeyObj = crypto.createPublicKey(cleanPubKey);
+try {
+  pubKeyObj = crypto.createPublicKey(normalizePublicKey(existingUser.publicKey));
+} catch {
+  throw new apiError(400, "Stored public key is not a valid PEM key");
+}
 
 const isValid = crypto.verify(
   "sha256",
@@ -146,10 +141,7 @@ const isValid = crypto.verify(
   Buffer.from(signature, "hex")
 );
     if (!isValid) throw new apiError(401, "Invalid signature");
-    // const isValid = verifier.verify(existingUser.publicKey, signature, "hex");
-    // if (!isValid) throw new apiError(401, "Invalid signature");
-
-    //delete older session
+ 
     await session.findByIdAndDelete(tempSession._id);
 
     const newSession = await session.create({
@@ -178,6 +170,20 @@ const isValid = crypto.verify(
     });
     await newRefreshTokenDoc.save();
 
+
+       res.cookie("accessToken", accessToken, {
+      httpOnly: true,
+      sameSite: "strict",
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 15 * 60 * 1000, // 15 min
+    });
+
+    res.cookie("refreshToken", refreshtoken, {
+      httpOnly: true,
+      sameSite: "strict",
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
     return res.status(200).json({
       message: "Login successful",
       tokens: { accessToken, refreshtoken },
@@ -190,3 +196,4 @@ const isValid = crypto.verify(
     }
   }
 };
+
