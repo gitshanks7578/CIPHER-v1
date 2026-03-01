@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+  //es module syntax
+    "target": "ESNext",
+   //code will be written es module  |remove the types
+    "module": "NodeNext",
+    //ignore error from dependencies            
+    "skipLibCheck": true,
+    //enables null safety always 
+    "strict": true,
+    "outDir": "../../dist-electron"
+
+  }
+}
