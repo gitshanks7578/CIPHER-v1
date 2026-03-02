@@ -157,7 +157,7 @@ app.on("ready", () => {
   }
 
   // --- Sign a test challenge and log it for backend testing ---
-  const challenge = "f2d7aa652c2b76395aea82fbb316ee42514b29e34869c8d243a5ba5cde6467be";
+  const challenge = "4fff90ecb4bafb89598e6fee02a5f28d29efd225133cbf4905dd95e456cf1ced";
   const privateKey = fs.readFileSync(privateKeyPath, "utf-8");
 console.log(privateKey)
   const signatureBuffer = sign(

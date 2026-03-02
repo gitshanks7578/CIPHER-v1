@@ -6,6 +6,7 @@ import crypto from "crypto";
 import bcrypt from "bcrypt";
 import { refreshToken } from "../models/refreshtoken.model";
 // import jwt from "jsonwebtoken"
+import { AuthRequest } from "../middlewares/verifyJWT";
 import {
   generateRefreshToken,
   generateAccessToken,
@@ -197,3 +198,38 @@ const isValid = crypto.verify(
   }
 };
 
+export const logout = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    if (!req.USER?.sessionID)
+      throw new apiError(401, "Unauthorized")
+
+    const sessionID = req.USER.sessionID
+
+
+    await session.findByIdAndUpdate(sessionID, { valid: false })
+
+    
+    await refreshToken.deleteMany({ sessionId: sessionID })
+
+  
+    res.clearCookie("accessToken", {
+      httpOnly: true,
+      sameSite: "strict",
+      secure: process.env.NODE_ENV === "production"
+    })
+
+    res.clearCookie("refreshToken", {
+      httpOnly: true,
+      sameSite: "strict",
+      secure: process.env.NODE_ENV === "production"
+    })
+
+    res.status(200).json({ message: "Logout successful" })
+  } catch (err) {
+    next(err)
+  }
+}
